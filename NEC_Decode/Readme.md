@@ -1,5 +1,5 @@
 
-/* Thanh Phat
+Thanh Phat
 To use this library, u must init Timer Input Capture DMA
 In this Project, i use Timer 2 - Channel 1 - PA0 pin to use input capture FALLING EDGE
 Timer tick 1us
@@ -14,4 +14,3 @@ else                                            Repeat Frame
     addr--naddr--com--ncom
 		bit 1: duration between 2 input capture > 2000us
 		bit 0:                                    2000us
-*/
