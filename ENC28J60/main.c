@@ -1,60 +1,94 @@
 
 #include "main.h"
 #include "stm32f4xx_hal.h"
-#include "ethernet.h"
 #include "ENC28J60.h"
-#include "packet.h"
+#include "ethernet.h"
+#include "packet.h"	
+#include "arp.h"
+#include "ip.h"
+#include "tcp.h"
+#include "http.h"
+
+#define BUFFER_SIZE      1500
 
 SPI_HandleTypeDef hspi1;
-TIM_HandleTypeDef htim1;
-extern volatile uint8_t eth_got_frame;
+
+TIM_HandleTypeDef htim2;
+
 void SystemClock_Config(void);
 void Error_Handler(void);
 static void MX_GPIO_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_TIM1_Init(void);
-uint8_t Mac[6]={0x00,0x04,0xa3,0x2d,0x30,0x36};//ENC Mac
-uint8_t MyIpAddr[4] = {192,168,100,27};//ENC IP
-uint8_t frame[42];
-extern uint8_t ethBuffer[ETHERNET_BUFFER_SIZE];
-volatile uint8_t len;
-uint8_t arp[42]=
-{	//ETHERNET HEADER
-	0xff,0xff,0xff,0xff,0xff,0xff,//Destination Address: Broadcast
-	0x00,0x04,0xa3,0x2d,0x30,0x36,//Source Address: 74:69:69:2d:30:36
-	0x08,0x06,										//Ethernet Type: ARP
-	//ARP FRAME
-	0x00,0x01,										//Hardware Type: Ethernet
-	0x08,0x00,										//Protocol Type: IP
-	0x06,													//HLEN: 6 bytes
-	0x04,													//PLEN: 4 bytes
-	0x00,0x01,										//Operation: 1: request, 2: reply
-	0x00,0x04,0xa3,0x2d,0x30,0x36,//Sender Mac: 74:69:69:2d:30:36
-	0xc0,0xa8,0x64,0x1B,					//Sender IP: 192.168.100.27
-	0x00,0x00,0x00,0x00,0x00,0x00,//Target MAC: 00:00:00:00:00:00 Ko có
-	0xc0,0xa8,0x64,0x01};					//Target IP: 192.168.100.1
+static void MX_TIM2_Init(void);
+
+uint8_t Mac[6]= {0x00,0x04,0xa3,0x2d,0x30,0x36};//ENC Mac
+uint8_t Ip[4] = {192,168,100,47};               //ENC IP
+uint16_t Port  = 2000;
+
+volatile uint16_t time_watchdog=0;
+volatile uint8_t reset=0;
+
+uint8_t ethBuffer[BUFFER_SIZE];
+
+uint8_t len=0;
+
+
 int main(void)
 {
 
-  
+
   HAL_Init();
+
   SystemClock_Config();
   MX_GPIO_Init();
   MX_SPI1_Init();
-	MX_TIM1_Init();
-	ENC_Init(Mac);
+  MX_TIM2_Init();
+	ETH_Init(Mac);
+	HAL_TIM_Base_Start_IT(&htim2);
 
- 	HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-	ethSendFrame(42,arp);
+
+
   while (1)
   {
-		len = ethGetFrame(ETHERNET_BUFFER_SIZE, ethBuffer);
-		if (len==60) HAL_GPIO_TogglePin(GPIOD,GPIO_PIN_12);
+		
+    //chong treo ENC
+		if(reset)
+			{
+				reset=0;
+				ETH_Init(Mac);
+				HAL_TIM_Base_Start_IT(&htim2);
+			}
+		//xu li frame
+			len = ETH_GetFrame(BUFFER_SIZE,ethBuffer);
+		 if(len!=0)
+			{
+					
+					ETH_Service(len,ethBuffer);
+				
+					time_watchdog=0;	
+			}
+
   }
- 
+
 
 }
 
+
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+		if(htim->Instance==htim2.Instance)
+		{
+			if((time_watchdog++)>10)
+			{
+				time_watchdog=0;
+				reset=1;
+				HAL_TIM_Base_Stop_IT(&htim2);
+				
+			}
+		
+		}
+}
 void SystemClock_Config(void)
 {
 
@@ -108,39 +142,7 @@ void SystemClock_Config(void)
   HAL_NVIC_SetPriority(SysTick_IRQn, 0, 0);
 }
 
-/* TIM1 init function */
-static void MX_TIM1_Init(void)
-{
-
-  TIM_ClockConfigTypeDef sClockSourceConfig;
-  TIM_MasterConfigTypeDef sMasterConfig;
-
-  htim1.Instance = TIM1;
-  htim1.Init.Prescaler = 25000;
-  htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim1.Init.Period = 1999;
-  htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-  htim1.Init.RepetitionCounter = 0;
-  if (HAL_TIM_Base_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
-  if (HAL_TIM_ConfigClockSource(&htim1, &sClockSourceConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-  if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-}
-
+/* SPI1 init function */
 static void MX_SPI1_Init(void)
 {
 
@@ -151,7 +153,7 @@ static void MX_SPI1_Init(void)
   hspi1.Init.CLKPolarity = SPI_POLARITY_LOW;
   hspi1.Init.CLKPhase = SPI_PHASE_1EDGE;
   hspi1.Init.NSS = SPI_NSS_SOFT;
-  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_8;
+  hspi1.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_2;
   hspi1.Init.FirstBit = SPI_FIRSTBIT_MSB;
   hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
   hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
@@ -163,6 +165,37 @@ static void MX_SPI1_Init(void)
 
 }
 
+/* TIM2 init function */
+static void MX_TIM2_Init(void)
+{
+
+  TIM_ClockConfigTypeDef sClockSourceConfig;
+  TIM_MasterConfigTypeDef sMasterConfig;
+
+  htim2.Instance = TIM2;
+  htim2.Init.Prescaler = 50000;
+  htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim2.Init.Period = 1999;
+  htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim2, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim2, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
 
 static void MX_GPIO_Init(void)
 {
@@ -174,14 +207,12 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
-  /*Configure GPIO pin : PA0 */
-  GPIO_InitStruct.Pin = GPIO_PIN_0;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15 
+                          |GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : PD12 PD13 PD14 PD15 
-                           PD7 */
+                           PD6 PD7 */
   GPIO_InitStruct.Pin = GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15 
                           |GPIO_PIN_6|GPIO_PIN_7;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -189,25 +220,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOD, GPIO_PIN_12|GPIO_PIN_13|GPIO_PIN_14|GPIO_PIN_15 
-                          |GPIO_PIN_6|GPIO_PIN_7, GPIO_PIN_RESET);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI0_IRQn, 0, 0);
-  //HAL_NVIC_EnableIRQ(EXTI0_IRQn);
-
 }
 
-/* USER CODE BEGIN 4 */
-
-/* USER CODE END 4 */
-
-/**
-  * @brief  This function is executed in case of error occurrence.
-  * @param  None
-  * @retval None
-  */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler */
@@ -217,33 +231,3 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler */ 
 }
-
-#ifdef USE_FULL_ASSERT
-
-/**
-   * @brief Reports the name of the source file and the source line number
-   * where the assert_param error has occurred.
-   * @param file: pointer to the source file name
-   * @param line: assert_param error line source number
-   * @retval None
-   */
-void assert_failed(uint8_t* file, uint32_t line)
-{
-  /* USER CODE BEGIN 6 */
-  /* User can add his own implementation to report the file name and line number,
-    ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
-  /* USER CODE END 6 */
-
-}
-
-#endif
-
-/**
-  * @}
-  */ 
-
-/**
-  * @}
-*/ 
-
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
