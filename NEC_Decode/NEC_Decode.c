@@ -25,8 +25,7 @@ void NEC_Processing(void)
 		 }
 		 else                  //Repeat Frame
 		 {
-			 //Decode Function
-			 NEC_Decode(decode,data);
+			
 				/*Check Error : decode[0]: address
 												decode[1]: negative address
 												decode[2]: data
@@ -38,6 +37,8 @@ void NEC_Processing(void)
 	 else    //type=1
 	 {
 		 type=0;
+		  //Decode Function
+	         NEC_Decode(decode,data);
 		 HAL_TIM_IC_Start_DMA(&htim2,TIM_CHANNEL_1,header,2);
 	 }
 }
