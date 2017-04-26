@@ -2,6 +2,7 @@
 Thanh Phat
 # To use this library, u must init Timer Input Capture DMA
 In this Project, i use Timer 2 - Channel 1 - PA0 pin to use input capture FALLING EDGE
+
 Timer tick 1us
 
 By the way, i use UART2 DMA to transmit data from MCU to PC
