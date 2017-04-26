@@ -1,46 +1,8 @@
-/**
-  ******************************************************************************
-  * File Name          : main.c
-  * Description        : Main program body
-  ******************************************************************************
-  *
-  * COPYRIGHT(c) 2017 STMicroelectronics
-  *
-  * Redistribution and use in source and binary forms, with or without modification,
-  * are permitted provided that the following conditions are met:
-  *   1. Redistributions of source code must retain the above copyright notice,
-  *      this list of conditions and the following disclaimer.
-  *   2. Redistributions in binary form must reproduce the above copyright notice,
-  *      this list of conditions and the following disclaimer in the documentation
-  *      and/or other materials provided with the distribution.
-  *   3. Neither the name of STMicroelectronics nor the names of its contributors
-  *      may be used to endorse or promote products derived from this software
-  *      without specific prior written permission.
-  *
-  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-  * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
-  * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
-  * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-  * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
-  * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
-  * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
-  * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
-  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-  *
-  ******************************************************************************
-  */
-/* Includes ------------------------------------------------------------------*/
+
 #include "main.h"
 #include "stm32f4xx_hal.h"
 
-/* USER CODE BEGIN Includes */
 
-/* USER CODE END Includes */
-
-/* Private variables ---------------------------------------------------------*/
-
-/* USER CODE BEGIN PV */
 /* Private variables ---------------------------------------------------------*/
 #define ADDR_FLASH_SECTOR_0     ((uint32_t)0x08000000) /* Base @ of Sector 0, 16 Kbytes */
 #define ADDR_FLASH_SECTOR_1     ((uint32_t)0x08004000) /* Base @ of Sector 1, 16 Kbytes */
@@ -51,8 +13,8 @@
 #define ADDR_FLASH_SECTOR_6     ((uint32_t)0x08040000) /* Base @ of Sector 6, 128 Kbytes */
 #define ADDR_FLASH_SECTOR_7     ((uint32_t)0x08060000) /* Base @ of Sector 7, 128 Kbytes */
 /*Sector 0-3: 16Kb
-					 4: 64Kb
-				5-11: 128Kb*/
+ 4: 64Kb
+5-11: 128Kb*/
 #define FLASH_USER_START_ADDR   ADDR_FLASH_SECTOR_2   /* Start @ of user Flash area */
 #define FLASH_USER_END_ADDR     ADDR_FLASH_SECTOR_7  +  128*1024 -1 /* End @ of user Flash area : sector start address + sector size -1 */
 
@@ -73,9 +35,9 @@ int main(void)
   HAL_Init();
   SystemClock_Config();
   MX_GPIO_Init();
-	Flash_Init();
-	Flash_Write(Address,data,sizeof(data));
-	Flash_Read(Address,read,20);
+  Flash_Init();
+  Flash_Write(Address,data,sizeof(data));
+  Flash_Read(Address,read,20);
 	
   while (1)
   {
@@ -108,16 +70,16 @@ static void Flash_Init(void)
 	uint32_t SectorError = 0;
 	FLASH_EraseInitTypeDef EraseInitStruct;
 	EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
-  EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
-  EraseInitStruct.Sector = 2;
-  EraseInitStruct.NbSectors = 6;
+ 	EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
+	EraseInitStruct.Sector = 2;
+	EraseInitStruct.NbSectors = 6;
 	HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
 	 __HAL_FLASH_DATA_CACHE_DISABLE();
-  __HAL_FLASH_INSTRUCTION_CACHE_DISABLE();
-  __HAL_FLASH_DATA_CACHE_RESET();
-  __HAL_FLASH_INSTRUCTION_CACHE_RESET();
-  __HAL_FLASH_INSTRUCTION_CACHE_ENABLE();
-  __HAL_FLASH_DATA_CACHE_ENABLE();
+	__HAL_FLASH_INSTRUCTION_CACHE_DISABLE();
+	__HAL_FLASH_DATA_CACHE_RESET();
+	__HAL_FLASH_INSTRUCTION_CACHE_RESET();
+	__HAL_FLASH_INSTRUCTION_CACHE_ENABLE();
+	__HAL_FLASH_DATA_CACHE_ENABLE();
 	HAL_FLASH_Lock(); 
 }
 
